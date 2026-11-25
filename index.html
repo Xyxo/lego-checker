@@ -100,14 +100,35 @@
     return trimmed.includes("-") ? trimmed : `${trimmed}-1`;
   }
 
-  // Hilfsfunktion: Ruft URL über CORS-Proxy ab, da Rebrickable direkte Browser-Requests blockiert
-  async function fetchWithProxy(targetUrl) {
-    const proxyUrl = `https://corsproxy.io{encodeURIComponent(targetUrl)}`;
-    const res = await fetch(proxyUrl);
-    if (!res.ok) {
-      throw new Error(`Fehler ${res.status}: Set nicht gefunden oder API-Key ungültig.`);
+  // Probiert mehrere kostenlose CORS-Proxies nacheinander durch
+  async function fetchWithFallback(targetUrl) {
+    const proxies = [
+      (u) => `https://allorigins.win{encodeURIComponent(u)}`,
+      (u) => `https://codetabs.com{encodeURIComponent(u)}`,
+      (u) => `https://freeboard.io{u}`
+    ];
+
+    let lastError = null;
+    for (const makeUrl of proxies) {
+      try {
+        const res = await fetch(makeUrl(targetUrl));
+        if (res.status === 401 || res.status === 403) {
+          throw new Error("API-Key ungültig (401/403). Bitte Key prüfen.");
+        }
+        if (res.status === 404) {
+          throw new Error("Set-Nummer wurde auf Rebrickable nicht gefunden (404).");
+        }
+        if (!res.ok) continue;
+
+        const text = await res.text();
+        const json = JSON.parse(text);
+        if (json && json.results) return json;
+      } catch (err) {
+        if (err.message.includes("401") || err.message.includes("404")) throw err;
+        lastError = err;
+      }
     }
-    return res.json();
+    throw new Error("Verbindung über alle Proxies fehlgeschlagen. Bitte in 1 Minute erneut versuchen.");
   }
 
   async function loadParts() {
@@ -136,9 +157,9 @@
       let allResults = [];
 
       while (url) {
-        const data = await fetchWithProxy(url);
+        const data = await fetchWithFallback(url);
         allResults = allResults.concat(data.results);
-        
+
         if (data.next) {
           url = data.next.includes("key=") ? data.next : `${data.next}&key=${encodeURIComponent(apiKey)}`;
         } else {
