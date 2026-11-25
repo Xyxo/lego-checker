@@ -100,6 +100,16 @@
     return trimmed.includes("-") ? trimmed : `${trimmed}-1`;
   }
 
+  // Hilfsfunktion: Ruft URL über CORS-Proxy ab, da Rebrickable direkte Browser-Requests blockiert
+  async function fetchWithProxy(targetUrl) {
+    const proxyUrl = `https://corsproxy.io{encodeURIComponent(targetUrl)}`;
+    const res = await fetch(proxyUrl);
+    if (!res.ok) {
+      throw new Error(`Fehler ${res.status}: Set nicht gefunden oder API-Key ungültig.`);
+    }
+    return res.json();
+  }
+
   async function loadParts() {
     const apiKey = document.getElementById("apiKey").value.trim();
     const rawSet = document.getElementById("setNum").value.trim();
@@ -122,17 +132,13 @@
     document.getElementById("grid").innerHTML = "";
 
     try {
-      // API-Key als Query-Parameter vermeidet CORS-Preflight-Blockaden im Browser
       let url = `https://rebrickable.com{encodeURIComponent(currentSet)}/parts/?page_size=500&key=${encodeURIComponent(apiKey)}`;
       let allResults = [];
 
       while (url) {
-        const res = await fetch(url);
-        if (!res.ok) throw new Error(`Fehler ${res.status}: Set nicht gefunden oder API-Key ungültig.`);
-        const data = await res.json();
+        const data = await fetchWithProxy(url);
         allResults = allResults.concat(data.results);
         
-        // Falls es eine nächste Seite gibt, Key wieder anhängen, falls er fehlt
         if (data.next) {
           url = data.next.includes("key=") ? data.next : `${data.next}&key=${encodeURIComponent(apiKey)}`;
         } else {
@@ -147,7 +153,7 @@
       document.getElementById("setTitle").textContent = `Set ${currentSet}`;
       render();
     } catch (err) {
-      errorEl.textContent = `${err.message} (Hinweis: Prüfe deine Internetverbindung oder deaktiviere kurz AdBlocker/Tracker-Schutz für diese Seite.)`;
+      errorEl.textContent = err.message;
       document.getElementById("counter").textContent = "Fehler beim Laden";
     }
   }
