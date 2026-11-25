@@ -5,262 +5,154 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>LEGO Teile-Checker</title>
   <style>
-    :root {
-      --bg: #f4f6f8;
-      --card: #ffffff;
-      --primary: #d9232e;
-      --text: #1f2937;
-      --muted: #6b7280;
-      --border: #e5e7eb;
-    }
-    * { box-sizing: border-box; font-family: system-ui, -apple-system, sans-serif; }
-    body { margin: 0; background: var(--bg); color: var(--text); padding: 16px; }
-    header { max-width: 900px; margin: 0 auto 16px; }
-    h1 { font-size: 1.4rem; margin: 0 0 12px; }
-    .controls {
-      display: grid; gap: 10px; background: var(--card);
-      padding: 12px; border-radius: 12px; border: 1px solid var(--border);
-    }
-    .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-    input, select {
-      flex: 1; min-width: 140px; padding: 10px; border: 1px solid var(--border);
-      border-radius: 8px; font-size: 1rem; background: #fff; color: var(--text);
-    }
-    button {
-      padding: 10px 16px; border: none; border-radius: 8px; font-weight: 600;
-      cursor: pointer; font-size: 0.95rem; transition: background 0.15s, color 0.15s;
-    }
-    .btn-primary { background: var(--primary); color: #fff; }
-    .btn-secondary { background: #e5e7eb; color: var(--text); }
-
-    /* Set-Titel Banner */
-    .set-banner {
-      max-width: 900px; margin: 14px auto; background: var(--card);
-      border: 1px solid var(--border); border-radius: 12px; padding: 14px;
-      display: none; align-items: center; gap: 14px;
-    }
-    .set-banner.visible { display: flex; }
-    .set-banner img {
-      width: 72px; height: 72px; object-fit: contain; border-radius: 8px;
-      background: #f9fafb; padding: 4px; flex-shrink: 0;
-    }
-    .set-banner-info { min-width: 0; }
-    .set-banner-title {
-      font-size: 1.45rem; font-weight: 800; line-height: 1.2; color: #111827;
-      margin: 0 0 4px; word-break: break-word;
-    }
-    .set-banner-meta {
-      font-size: 0.85rem; color: var(--muted); font-weight: 500;
-    }
-
-    /* Tabs Styling */
-    .tabs {
-      display: flex; gap: 8px; border-top: 1px solid var(--border); padding-top: 10px;
-    }
-    .tab-btn {
-      flex: 1; background: #f3f4f6; color: var(--muted); border: 1px solid var(--border);
-    }
-    .tab-btn.active {
-      background: #111827; color: #fff; border-color: #111827;
-    }
-
-    .status-bar {
-      max-width: 900px; margin: 12px auto; display: flex;
-      justify-content: space-between; align-items: center; font-size: 0.9rem; color: var(--muted);
-    }
-    .grid {
-      max-width: 900px; margin: 0 auto;
-      display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px;
-    }
-    .card {
-      background: var(--card); border: 1px solid var(--border); border-radius: 12px;
-      padding: 10px; display: flex; flex-direction: column; align-items: center;
-      text-align: center; cursor: pointer; transition: transform 0.12s;
-      user-select: none;
-    }
-    .card:active { transform: scale(0.96); }
-    .card.found-card {
-      border-color: #10b981; background: #f0fdf4; cursor: default;
-    }
-    .card.found-card:active { transform: none; }
-    .card img { width: 96px; height: 96px; object-fit: contain; margin-bottom: 8px; }
-    .qty {
-      background: #111827; color: #fff; font-weight: 700; font-size: 0.85rem;
-      padding: 2px 10px; border-radius: 999px; margin-bottom: 6px;
-    }
-    .qty.partial { background: #d97706; }
-    .found-card .qty { background: #059669; }
-    .name { font-size: 0.8rem; font-weight: 600; line-height: 1.2; margin-bottom: 4px; }
-    .color { font-size: 0.75rem; color: var(--muted); margin-bottom: 8px; }
-    .btn-card {
-      margin-top: auto; width: 100%; padding: 6px 10px; font-size: 0.8rem;
-      background: #f3f4f6; color: #374151; border: 1px solid #d1d5db; border-radius: 8px;
-    }
-    .btn-card:active { background: #e5e7eb; }
-    .found-card .btn-card { background: #ffffff; }
-    .empty-msg {
-      grid-column: 1 / -1; text-align: center; padding: 32px 16px;
-      color: var(--muted); font-size: 0.95rem;
-    }
-    .error { color: #b91c1c; font-weight: 600; max-width: 900px; margin: 8px auto; }
+    * { box-sizing: border-box; font-family: system-ui, sans-serif; }
+    body { margin: 0; background: #f4f6f8; color: #1f2937; padding: 14px; }
+    .wrap { max-width: 900px; margin: 0 auto; }
+    h1 { font-size: 1.35rem; margin: 0 0 10px; }
+    .box { background: #fff; padding: 12px; border-radius: 12px; border: 1px solid #e5e7eb; display: grid; gap: 8px; }
+    .row { display: flex; gap: 8px; flex-wrap: wrap; }
+    input, select { flex: 1; min-width: 130px; padding: 10px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 1rem; background: #fff; }
+    button { padding: 10px 14px; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 0.9rem; }
+    .btn-red { background: #d9232e; color: #fff; }
+    .btn-gray { background: #e5e7eb; color: #1f2937; }
+    .tabs { display: flex; gap: 6px; border-top: 1px solid #e5e7eb; padding-top: 8px; flex-wrap: wrap; }
+    .tab { flex: 1; min-width: 95px; background: #f3f4f6; color: #4b5563; border: 1px solid #e5e7eb; padding: 8px; }
+    .tab.active { background: #111827; color: #fff; border-color: #111827; }
+    .banner { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 12px; margin-top: 12px; display: none; align-items: center; gap: 12px; }
+    .banner.show { display: flex; }
+    .banner img { width: 68px; height: 68px; object-fit: contain; background: #f9fafb; border-radius: 8px; }
+    .banner h2 { margin: 0 0 4px; font-size: 1.35rem; font-weight: 800; color: #111827; }
+    .banner small { color: #6b7280; }
+    .status { margin: 10px 0; display: flex; justify-content: space-between; font-size: 0.9rem; color: #6b7280; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(145px, 1fr)); gap: 10px; }
+    .card { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 10px; display: flex; flex-direction: column; align-items: center; text-align: center; cursor: pointer; user-select: none; }
+    .card.done { border-color: #10b981; background: #f0fdf4; cursor: default; }
+    .card img { width: 90px; height: 90px; object-fit: contain; margin-bottom: 6px; }
+    .qty { background: #111827; color: #fff; font-weight: 700; font-size: 0.82rem; padding: 2px 9px; border-radius: 99px; margin-bottom: 5px; }
+    .qty.part { background: #d97706; }
+    .done .qty { background: #059669; }
+    .name { font-size: 0.8rem; font-weight: 600; line-height: 1.2; margin-bottom: 3px; }
+    .color { font-size: 0.75rem; color: #6b7280; margin-bottom: 8px; }
+    .btn-sm { margin-top: auto; width: 100%; padding: 6px; font-size: 0.8rem; background: #f3f4f6; border: 1px solid #d1d5db; border-radius: 8px; }
+    .set-item { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 10px; display: flex; align-items: center; gap: 10px; cursor: pointer; margin-bottom: 8px; }
+    .set-item img { width: 58px; height: 58px; object-fit: contain; }
+    .bar { height: 7px; background: #e5e7eb; border-radius: 99px; overflow: hidden; margin-top: 5px; }
+    .bar div { height: 100%; background: #10b981; }
+    .err { color: #b91c1c; font-weight: 600; margin-top: 8px; }
   </style>
 </head>
 <body>
-
-<header>
+<div class="wrap">
   <h1>🧱 LEGO Teile-Checker</h1>
-  <div class="controls">
+  <div class="box">
     <div class="row">
       <input type="password" id="apiKey" placeholder="Rebrickable API-Key" />
       <input type="text" id="setNum" placeholder="Set-Nr. (z.B. 70670-1)" />
-      <button class="btn-primary" onclick="loadParts()">Laden</button>
-      <button class="btn-secondary" onclick="resetSet()">Reset</button>
+      <button class="btn-red" onclick="loadParts()">Laden</button>
+      <button class="btn-gray" onclick="resetSet()">Reset</button>
     </div>
-    <div class="row">
-      <select id="colorFilter" onchange="onColorChange()">
-        <option value="ALL">🎨 Alle Farben</option>
-      </select>
+    <div class="row" id="filterRow">
+      <select id="colorFilter" onchange="selectedColor=this.value;render()"><option value="ALL">🎨 Alle Farben</option></select>
     </div>
     <div class="tabs">
-      <button class="tab-btn active" id="tabMissing" onclick="switchTab('missing')">
-        🔍 Noch gesucht (<span id="countMissing">0</span>)
-      </button>
-      <button class="tab-btn" id="tabFound" onclick="switchTab('found')">
-        ✅ Gefunden (<span id="countFound">0</span>)
-      </button>
+      <button class="tab active" id="tMiss" onclick="setTab('miss')">🔍 Gesucht (<span id="cMiss">0</span>)</button>
+      <button class="tab" id="tDone" onclick="setTab('done')">✅ Gefunden (<span id="cDone">0</span>)</button>
+      <button class="tab" id="tSets" onclick="setTab('sets')">📚 Meine Sets (<span id="cSets">0</span>)</button>
     </div>
   </div>
-</header>
-
-<section id="setBanner" class="set-banner">
-  <img id="setImg" src="" alt="Set Vorschau" />
-  <div class="set-banner-info">
-    <h2 id="setNameHeading" class="set-banner-title"></h2>
-    <div id="setMeta" class="set-banner-meta"></div>
-  </div>
-</section>
-
-<div id="error" class="error"></div>
-<div class="status-bar">
-  <span id="counter">Bereit</span>
-  <span id="setTitle"></span>
+  <div id="banner" class="banner"><img id="bImg" /><div style="min-width:0"><h2 id="bTitle"></h2><small id="bMeta"></small></div></div>
+  <div id="err" class="err"></div>
+  <div class="status" id="sBar"><span id="counter">Bereit</span><span id="setTitle"></span></div>
+  <div id="grid" class="grid"></div>
+  <div id="setList" style="display:none"></div>
 </div>
-<main id="grid" class="grid"></main>
-
 <script>
-  const WORKER_URL = "https://" + "lively-star-04ab.questtest24.workers.dev";
-  let parts = [];
-  let foundCounts = {};
-  let activeTab = "missing";
-  let selectedColor = "ALL";
-  let currentSet = "";
+  const WORKER = "https://" + "lively-star-04ab.questtest24.workers.dev";
+  const HOST = "https:" + "//reb" + "rickable." + "com";
+  let parts = [], counts = {}, tab = "miss", selectedColor = "ALL", curSet = "", curMeta = null;
 
   window.onload = () => {
-    const savedKey = localStorage.getItem("rb_api_key");
-    const savedSet = localStorage.getItem("rb_last_set");
-    if (savedKey) document.getElementById("apiKey").value = savedKey;
-    if (savedSet) document.getElementById("setNum").value = savedSet;
+    if (localStorage.rb_api_key) apiKey.value = localStorage.rb_api_key;
+    if (localStorage.rb_last_set) setNum.value = localStorage.rb_last_set;
+    cSets.textContent = Object.keys(JSON.parse(localStorage.rb_sets || "{}")).length;
   };
 
-  function normalizeSetNum(input) {
-    const trimmed = input.trim();
-    return trimmed.includes("-") ? trimmed : trimmed + "-1";
+  function setTab(t) {
+    tab = t;
+    tMiss.classList.toggle("active", t === "miss");
+    tDone.classList.toggle("active", t === "done");
+    tSets.classList.toggle("active", t === "sets");
+    filterRow.style.display = sBar.style.display = t === "sets" ? "none" : "flex";
+    grid.style.display = t === "sets" ? "none" : "grid";
+    setList.style.display = t === "sets" ? "block" : "none";
+    t === "sets" ? renderSets() : render();
   }
 
-  function switchTab(tabName) {
-    activeTab = tabName;
-    document.getElementById("tabMissing").classList.toggle("active", tabName === "missing");
-    document.getElementById("tabFound").classList.toggle("active", tabName === "found");
-    render();
+  function save() {
+    localStorage["counts_" + curSet] = JSON.stringify(counts);
+    if (!curSet || !parts.length) return;
+    let tot = 0, fnd = 0;
+    parts.forEach(p => { tot += p.quantity; fnd += Math.min(counts[p.id] || 0, p.quantity); });
+    const sets = JSON.parse(localStorage.rb_sets || "{}");
+    sets[curSet] = { set: curSet, ...(curMeta || sets[curSet]), tot, fnd, ts: Date.now() };
+    localStorage.rb_sets = JSON.stringify(sets);
+    cSets.textContent = Object.keys(sets).length;
   }
 
-  function onColorChange() {
-    selectedColor = document.getElementById("colorFilter").value;
-    render();
-  }
-
-  function saveProgress() {
-    localStorage.setItem("counts_" + currentSet, JSON.stringify(foundCounts));
-  }
-
-  async function loadParts() {
-    const apiKey = document.getElementById("apiKey").value.trim();
-    const rawSet = document.getElementById("setNum").value.trim();
-    const errorEl = document.getElementById("error");
-    const bannerEl = document.getElementById("setBanner");
-    errorEl.textContent = "";
-    bannerEl.classList.remove("visible");
-
-    if (!apiKey || !rawSet) {
-      errorEl.textContent = "Bitte API-Key und Set-Nummer eingeben.";
-      return;
-    }
-
-    currentSet = normalizeSetNum(rawSet);
-    localStorage.setItem("rb_api_key", apiKey);
-    localStorage.setItem("rb_last_set", currentSet);
-
-    const savedCounts = JSON.parse(localStorage.getItem("counts_" + currentSet) || "null");
-    if (savedCounts) {
-      foundCounts = savedCounts;
-    } else {
-      foundCounts = {};
-      const oldChecked = JSON.parse(localStorage.getItem("checked_" + currentSet) || "[]");
-      oldChecked.forEach(id => { foundCounts[id] = 999999; });
-    }
-
-    document.getElementById("counter").textContent = "Lade Set-Infos und Teile...";
-    document.getElementById("grid").innerHTML = "";
-
-    const baseApi = "https:" + "//reb" + "rickable." + "com/api/v3/lego/sets/" + encodeURIComponent(currentSet);
-    const fallbackImg = "https:" + "//reb" + "rickable." + "com/static/img/nil.png";
-
+  async function loadParts(override) {
+    if (override) setNum.value = override;
+    const key = apiKey.value.trim(), raw = setNum.value.trim();
+    err.textContent = ""; banner.classList.remove("show");
+    if (!key || !raw) return (err.textContent = "Bitte API-Key und Set-Nummer eingeben.");
+    curSet = raw.includes("-") ? raw : raw + "-1";
+    localStorage.rb_api_key = key; localStorage.rb_last_set = curSet;
+    if (tab === "sets") setTab("miss");
+    counts = JSON.parse(localStorage["counts_" + curSet] || "{}");
+    counter.textContent = "Lade..."; grid.innerHTML = "";
+    const base = HOST + "/api/v3/lego/sets/" + encodeURIComponent(curSet);
     try {
-      // 1. Set-Metadaten (Name, Jahr, Bild) abrufen
-      const infoUrl = baseApi + "/?key=" + encodeURIComponent(apiKey);
-      const infoRes = await fetch(WORKER_URL + "/?url=" + encodeURIComponent(infoUrl));
-      if (!infoRes.ok) throw new Error("Fehler " + infoRes.status + ": Set nicht gefunden oder API-Key ungültig.");
-      const setInfo = await infoRes.json();
+      const r1 = await fetch(WORKER + "/?url=" + encodeURIComponent(base + "/?key=" + encodeURIComponent(key)));
+      if (!r1.ok) throw new Error("Fehler " + r1.status + ": Set oder API-Key ungültig.");
+      const info = await r1.json();
+      curMeta = { name: info.name || curSet, year: info.year || "", img: info.set_img_url || HOST + "/static/img/nil.png" };
+      bTitle.textContent = curMeta.name; bMeta.textContent = "Set " + curSet + (curMeta.year ? " • " + curMeta.year : ""); bImg.src = curMeta.img;
+      banner.classList.add("show");
 
-      document.getElementById("setNameHeading").textContent = setInfo.name || ("Set " + currentSet);
-      document.getElementById("setMeta").textContent =
-        "Set-Nr. " + currentSet + (setInfo.year ? " • Jahr " + setInfo.year : "");
-      document.getElementById("setImg").src = setInfo.set_img_url || fallbackImg;
-      bannerEl.classList.add("visible");
-
-      // 2. Teileliste abrufen
-      let targetUrl = baseApi + "/parts/?page_size=500&key=" + encodeURIComponent(apiKey);
-      let allResults = [];
-
-      while (targetUrl) {
-        const fetchUrl = WORKER_URL + "/?url=" + encodeURIComponent(targetUrl);
-        const res = await fetch(fetchUrl);
-        if (!res.ok) throw new Error("Fehler " + res.status + " beim Laden der Teileliste.");
-
-        const data = await res.json();
-        allResults = allResults.concat(data.results);
-
-        if (data.next) {
-          targetUrl = data.next.includes("key=") ? data.next : data.next + "&key=" + encodeURIComponent(apiKey);
-        } else {
-          targetUrl = null;
-        }
+      let url = base + "/parts/?page_size=500&key=" + encodeURIComponent(key), all = [];
+      while (url) {
+        const r2 = await fetch(WORKER + "/?url=" + encodeURIComponent(url));
+        if (!r2.ok) throw new Error("Fehler " + r2.status + " bei Teileliste.");
+        const d = await r2.json(); all = all.concat(d.results);
+        url = d.next ? (d.next.includes("key=") ? d.next : d.next + "&key=" + encodeURIComponent(key)) : null;
       }
-
-      parts = allResults
-        .filter(item => !item.is_spare)
-        .sort((a, b) => a.color.name.localeCompare(b.color.name));
-
+      parts = all.filter(i => !i.is_spare).sort((a, b) => a.color.name.localeCompare(b.color.name));
       selectedColor = "ALL";
-      buildColorDropdown();
-
-      document.getElementById("setTitle").textContent = "Set " + currentSet;
-      render();
-    } catch (err) {
-      errorEl.textContent = err.message;
-      document.getElementById("counter").textContent = "Fehler beim Laden";
-    }
+      const cols = {}; parts.forEach(p => cols[p.color.name] = (cols[p.color.name] || 0) + p.quantity);
+      colorFilter.innerHTML = '<option value="ALL">🎨 Alle Farben (' + parts.length + ')</option>' +
+        Object.keys(cols).sort().map(c => '<option value="' + c + '">' + c + ' (' + cols[c] + ')</option>').join("");
+      save(); setTitle.textContent = "Set " + curSet; render();
+    } catch (e) { err.textContent = e.message; counter.textContent = "Fehler"; }
   }
 
-  function buildColorDropdown() {
-    const select = document.getElementById("colorFilter");
+  function resetSet() {
+    if (!curSet || !confirm("Set " + curSet + " wirklich zurücksetzen?")) return;
+    counts = {}; save(); render();
+  }
+
+  function renderSets() {
+    const list = Object.values(JSON.parse(localStorage.rb_sets || "{}")).sort((a, b) => b.ts - a.ts);
+    setList.innerHTML = list.length ? "" : "<p style='text-align:center;color:#6b7280'>Noch keine Sets gespeichert.</p>";
+    list.forEach(s => {
+      const pct = s.tot ? Math.round((s.fnd / s.tot) * 100) : 0;
+      const d = document.createElement("div"); d.className = "set-item"; d.onclick = () => loadParts(s.set);
+      d.innerHTML = '<img src="' + s.img + '"><div style="flex:1;min-width:0"><b>' + s.name + '</b><br><small>Set ' + s.set + ' • ' + s.fnd + '/' + s.tot + ' (' + pct + '%)</small><div class="bar"><div style="width:' + pct + '%"></div></div></div>';
+      const del = document.createElement("button"); del.textContent = "🗑️"; del.style.background = "#fee2e2";
+      del.onclick = e => { e.stopPropagation(); if (confirm(s.name + " löschen?")) { const all = JSON.parse(localStorage.rb_sets || "{}"); delete all[s.set]; localStorage.rb_sets = JSON.stringify(all); delete localStorage["counts_" + s.set]; cSets.textContent = Object.keys(all).length; renderSets(); } };
+      d.appendChild(del); setList.appendChild(d);
+    });
+  }
+
+  function render() {
+    grid.innerHTML = "";
+    let tot = 0, fnd = 0;
+    parts.forEach(p => { tot += p.quantity; fnd += Math.min(counts[p.id] || 0, p.quantity); });
