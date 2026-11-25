@@ -65,7 +65,7 @@
   <div class="controls">
     <div class="row">
       <input type="password" id="apiKey" placeholder="Rebrickable API-Key" />
-      <input type="text" id="setNum" placeholder="Set-Nr. (z.B. 75192-1)" />
+      <input type="text" id="setNum" placeholder="Set-Nr. (z.B. 70670-1)" />
       <button class="btn-primary" onclick="loadParts()">Laden</button>
     </div>
     <div class="row">
@@ -88,7 +88,6 @@
   let showChecked = false;
   let currentSet = "";
 
-  // Gespeicherten API-Key und letztes Set beim Start laden
   window.onload = () => {
     const savedKey = localStorage.getItem("rb_api_key");
     const savedSet = localStorage.getItem("rb_last_set");
@@ -116,7 +115,6 @@
     localStorage.setItem("rb_api_key", apiKey);
     localStorage.setItem("rb_last_set", currentSet);
 
-    // Gespeicherte Haken für dieses Set laden
     const savedChecked = JSON.parse(localStorage.getItem(`checked_${currentSet}`) || "[]");
     checkedIds = new Set(savedChecked);
 
@@ -124,20 +122,24 @@
     document.getElementById("grid").innerHTML = "";
 
     try {
-      let url = `https://rebrickable.com{encodeURIComponent(currentSet)}/parts/?page_size=500`;
+      // API-Key als Query-Parameter vermeidet CORS-Preflight-Blockaden im Browser
+      let url = `https://rebrickable.com{encodeURIComponent(currentSet)}/parts/?page_size=500&key=${encodeURIComponent(apiKey)}`;
       let allResults = [];
 
       while (url) {
-        const res = await fetch(url, {
-          headers: { "Authorization": `key ${apiKey}` }
-        });
+        const res = await fetch(url);
         if (!res.ok) throw new Error(`Fehler ${res.status}: Set nicht gefunden oder API-Key ungültig.`);
         const data = await res.json();
         allResults = allResults.concat(data.results);
-        url = data.next;
+        
+        // Falls es eine nächste Seite gibt, Key wieder anhängen, falls er fehlt
+        if (data.next) {
+          url = data.next.includes("key=") ? data.next : `${data.next}&key=${encodeURIComponent(apiKey)}`;
+        } else {
+          url = null;
+        }
       }
 
-      // Ersatzteile (is_spare) herausfiltern und nach Farbe sortieren
       parts = allResults
         .filter(item => !item.is_spare)
         .sort((a, b) => a.color.name.localeCompare(b.color.name));
@@ -145,7 +147,7 @@
       document.getElementById("setTitle").textContent = `Set ${currentSet}`;
       render();
     } catch (err) {
-      errorEl.textContent = err.message;
+      errorEl.textContent = `${err.message} (Hinweis: Prüfe deine Internetverbindung oder deaktiviere kurz AdBlocker/Tracker-Schutz für diese Seite.)`;
       document.getElementById("counter").textContent = "Fehler beim Laden";
     }
   }
