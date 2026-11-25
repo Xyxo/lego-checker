@@ -18,20 +18,32 @@
     header { max-width: 900px; margin: 0 auto 16px; }
     h1 { font-size: 1.4rem; margin: 0 0 12px; }
     .controls {
-      display: grid; gap: 8px; background: var(--card);
+      display: grid; gap: 10px; background: var(--card);
       padding: 12px; border-radius: 12px; border: 1px solid var(--border);
     }
-    .row { display: flex; gap: 8px; flex-wrap: wrap; }
+    .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
     input {
       flex: 1; min-width: 140px; padding: 10px; border: 1px solid var(--border);
       border-radius: 8px; font-size: 1rem;
     }
     button {
       padding: 10px 16px; border: none; border-radius: 8px; font-weight: 600;
-      cursor: pointer; font-size: 0.95rem;
+      cursor: pointer; font-size: 0.95rem; transition: background 0.15s, color 0.15s;
     }
     .btn-primary { background: var(--primary); color: #fff; }
     .btn-secondary { background: #e5e7eb; color: var(--text); }
+    
+    /* Tabs Styling */
+    .tabs {
+      display: flex; gap: 8px; border-top: 1px solid var(--border); padding-top: 10px;
+    }
+    .tab-btn {
+      flex: 1; background: #f3f4f6; color: var(--muted); border: 1px solid var(--border);
+    }
+    .tab-btn.active {
+      background: #111827; color: #fff; border-color: #111827;
+    }
+
     .status-bar {
       max-width: 900px; margin: 12px auto; display: flex;
       justify-content: space-between; align-items: center; font-size: 0.9rem; color: var(--muted);
@@ -43,18 +55,31 @@
     .card {
       background: var(--card); border: 1px solid var(--border); border-radius: 12px;
       padding: 10px; display: flex; flex-direction: column; align-items: center;
-      text-align: center; cursor: pointer; transition: transform 0.12s, opacity 0.2s;
+      text-align: center; cursor: pointer; transition: transform 0.12s;
       user-select: none;
     }
     .card:active { transform: scale(0.96); }
-    .card.checked { opacity: 0.4; border-style: dashed; }
+    .card.found-card {
+      border-color: #10b981; background: #f0fdf4; cursor: default;
+    }
+    .card.found-card:active { transform: none; }
     .card img { width: 96px; height: 96px; object-fit: contain; margin-bottom: 8px; }
     .qty {
       background: #111827; color: #fff; font-weight: 700; font-size: 0.85rem;
       padding: 2px 8px; border-radius: 999px; margin-bottom: 6px;
     }
+    .found-card .qty { background: #059669; }
     .name { font-size: 0.8rem; font-weight: 600; line-height: 1.2; margin-bottom: 4px; }
-    .color { font-size: 0.75rem; color: var(--muted); }
+    .color { font-size: 0.75rem; color: var(--muted); margin-bottom: 6px; }
+    .btn-back {
+      margin-top: auto; width: 100%; padding: 6px 10px; font-size: 0.8rem;
+      background: #ffffff; color: #374151; border: 1px solid #d1d5db; border-radius: 8px;
+    }
+    .btn-back:active { background: #f3f4f6; }
+    .empty-msg {
+      grid-column: 1 / -1; text-align: center; padding: 32px 16px;
+      color: var(--muted); font-size: 0.95rem;
+    }
     .error { color: #b91c1c; font-weight: 600; max-width: 900px; margin: 8px auto; }
   </style>
 </head>
@@ -67,10 +92,15 @@
       <input type="password" id="apiKey" placeholder="Rebrickable API-Key" />
       <input type="text" id="setNum" placeholder="Set-Nr. (z.B. 70670-1)" />
       <button class="btn-primary" onclick="loadParts()">Laden</button>
+      <button class="btn-secondary" onclick="resetSet()">Reset</button>
     </div>
-    <div class="row">
-      <button class="btn-secondary" id="toggleBtn" onclick="toggleShowChecked()">Erledigte einblenden</button>
-      <button class="btn-secondary" onclick="resetSet()">Set zurücksetzen</button>
+    <div class="tabs">
+      <button class="tab-btn active" id="tabMissing" onclick="switchTab('missing')">
+        🔍 Noch gesucht (<span id="countMissing">0</span>)
+      </button>
+      <button class="tab-btn" id="tabFound" onclick="switchTab('found')">
+        ✅ Gefunden (<span id="countFound">0</span>)
+      </button>
     </div>
   </div>
 </header>
@@ -86,7 +116,7 @@
   const WORKER_URL = "https://" + "lively-star-04ab.questtest24.workers.dev";
   let parts = [];
   let checkedIds = new Set();
-  let showChecked = false;
+  let activeTab = "missing";
   let currentSet = "";
 
   window.onload = () => {
@@ -99,6 +129,13 @@
   function normalizeSetNum(input) {
     const trimmed = input.trim();
     return trimmed.includes("-") ? trimmed : trimmed + "-1";
+  }
+
+  function switchTab(tabName) {
+    activeTab = tabName;
+    document.getElementById("tabMissing").classList.toggle("active", tabName === "missing");
+    document.getElementById("tabFound").classList.toggle("active", tabName === "found");
+    render();
   }
 
   async function loadParts() {
@@ -123,7 +160,7 @@
     document.getElementById("grid").innerHTML = "";
 
     try {
-      let targetUrl = "https://reb" + "rickable." + "com/api/v3/lego/sets/" + encodeURIComponent(currentSet) + "/parts/?page_size=500&key=" + encodeURIComponent(apiKey);
+      let targetUrl = "https:" + "//reb" + "rickable." + "com/api/v3/lego/sets/" + encodeURIComponent(currentSet) + "/parts/?page_size=500&key=" + encodeURIComponent(apiKey);
       let allResults = [];
 
       while (targetUrl) {
@@ -153,26 +190,26 @@
     }
   }
 
-  function togglePart(uniqueId) {
-    if (checkedIds.has(uniqueId)) {
-      checkedIds.delete(uniqueId);
-    } else {
-      checkedIds.add(uniqueId);
-    }
+  function markAsFound(uniqueId) {
+    checkedIds.add(uniqueId);
     localStorage.setItem("checked_" + currentSet, JSON.stringify([...checkedIds]));
     render();
   }
 
-  function toggleShowChecked() {
-    showChecked = !showChecked;
-    document.getElementById("toggleBtn").textContent = showChecked
-      ? "Erledigte ausblenden"
-      : "Erledigte einblenden";
+  function moveBackToMissing(uniqueId, partName, colorName) {
+    const confirmed = confirm(
+      'Teil "' + partName + '" (' + colorName + ') wirklich wieder zurück in "Noch gesucht" verschieben?'
+    );
+    if (!confirmed) return;
+
+    checkedIds.delete(uniqueId);
+    localStorage.setItem("checked_" + currentSet, JSON.stringify([...checkedIds]));
     render();
   }
 
   function resetSet() {
     if (!currentSet) return;
+    if (!confirm("Wirklich alle abgehakten Teile für Set " + currentSet + " zurücksetzen?")) return;
     checkedIds.clear();
     localStorage.removeItem("checked_" + currentSet);
     render();
@@ -183,24 +220,49 @@
     grid.innerHTML = "";
 
     const total = parts.length;
-    const done = parts.filter(p => checkedIds.has(String(p.id))).length;
-    document.getElementById("counter").textContent = "Fortschritt: " + done + " / " + total + " Positionen erledigt";
+    const foundList = parts.filter(p => checkedIds.has(String(p.id)));
+    const missingList = parts.filter(p => !checkedIds.has(String(p.id)));
 
-    parts.forEach(item => {
+    document.getElementById("countMissing").textContent = missingList.length;
+    document.getElementById("countFound").textContent = foundList.length;
+    document.getElementById("counter").textContent =
+      "Fortschritt: " + foundList.length + " / " + total + " Positionen erledigt";
+
+    const listToShow = activeTab === "missing" ? missingList : foundList;
+
+    if (total > 0 && listToShow.length === 0) {
+      grid.innerHTML = activeTab === "missing"
+        ? '<div class="empty-msg">🎉 Alle Teile gefunden!</div>'
+        : '<div class="empty-msg">Noch keine Teile abgehakt.</div>';
+      return;
+    }
+
+    const fallbackImg = "https:" + "//reb" + "rickable." + "com/static/img/nil.png";
+
+    listToShow.forEach(item => {
       const uid = String(item.id);
-      const isChecked = checkedIds.has(uid);
-      if (isChecked && !showChecked) return;
+      const isFound = activeTab === "found";
 
       const card = document.createElement("div");
-      card.className = "card" + (isChecked ? " checked" : "");
-      card.onclick = () => togglePart(uid);
+      card.className = "card" + (isFound ? " found-card" : "");
 
-      const imgUrl = item.part.part_img_url || "https://rebrickable.com";
+      const imgUrl = item.part.part_img_url || fallbackImg;
       card.innerHTML =
         '<img src="' + imgUrl + '" alt="' + item.part.name + '" loading="lazy" />' +
         '<div class="qty">' + item.quantity + 'x</div>' +
         '<div class="name">' + item.part.name + '</div>' +
         '<div class="color">' + item.color.name + '</div>';
+
+      if (isFound) {
+        const backBtn = document.createElement("button");
+        backBtn.className = "btn-back";
+        backBtn.textContent = "↩️ Zurück";
+        backBtn.onclick = () => moveBackToMissing(uid, item.part.name, item.color.name);
+        card.appendChild(backBtn);
+      } else {
+        card.onclick = () => markAsFound(uid);
+      }
+
       grid.appendChild(card);
     });
   }
