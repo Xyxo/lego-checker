@@ -98,7 +98,7 @@
 
   function normalizeSetNum(input) {
     const trimmed = input.trim();
-    return trimmed.includes("-") ? trimmed : `${trimmed}-1`;
+    return trimmed.includes("-") ? trimmed : trimmed + "-1";
   }
 
   async function loadParts() {
@@ -116,25 +116,26 @@
     localStorage.setItem("rb_api_key", apiKey);
     localStorage.setItem("rb_last_set", currentSet);
 
-    const savedChecked = JSON.parse(localStorage.getItem(`checked_${currentSet}`) || "[]");
+    const savedChecked = JSON.parse(localStorage.getItem("checked_" + currentSet) || "[]");
     checkedIds = new Set(savedChecked);
 
     document.getElementById("counter").textContent = "Lade Teile...";
     document.getElementById("grid").innerHTML = "";
 
     try {
-      let targetUrl = `https://rebrickable.com{encodeURIComponent(currentSet)}/parts/?page_size=500&key=${encodeURIComponent(apiKey)}`;
+      let targetUrl = "https://rebrickable.com" + encodeURIComponent(currentSet) + "/parts/?page_size=500&key=" + encodeURIComponent(apiKey);
       let allResults = [];
 
       while (targetUrl) {
-        const res = await fetch(`${WORKER_URL}/?url=${encodeURIComponent(targetUrl)}`);
-        if (!res.ok) throw new Error(`Fehler ${res.status}: Set nicht gefunden oder API-Key ungültig.`);
+        const fetchUrl = WORKER_URL + "/?url=" + encodeURIComponent(targetUrl);
+        const res = await fetch(fetchUrl);
+        if (!res.ok) throw new Error("Fehler " + res.status + ": Set nicht gefunden oder API-Key ungültig.");
 
         const data = await res.json();
         allResults = allResults.concat(data.results);
 
         if (data.next) {
-          targetUrl = data.next.includes("key=") ? data.next : `${data.next}&key=${encodeURIComponent(apiKey)}`;
+          targetUrl = data.next.includes("key=") ? data.next : data.next + "&key=" + encodeURIComponent(apiKey);
         } else {
           targetUrl = null;
         }
@@ -144,10 +145,10 @@
         .filter(item => !item.is_spare)
         .sort((a, b) => a.color.name.localeCompare(b.color.name));
 
-      document.getElementById("setTitle").textContent = `Set ${currentSet}`;
+      document.getElementById("setTitle").textContent = "Set " + currentSet;
       render();
     } catch (err) {
-      errorEl.textContent = `${err.message} (${err.name})`;
+      errorEl.textContent = err.message;
       document.getElementById("counter").textContent = "Fehler beim Laden";
     }
   }
@@ -158,7 +159,7 @@
     } else {
       checkedIds.add(uniqueId);
     }
-    localStorage.setItem(`checked_${currentSet}`, JSON.stringify([...checkedIds]));
+    localStorage.setItem("checked_" + currentSet, JSON.stringify([...checkedIds]));
     render();
   }
 
@@ -173,7 +174,7 @@
   function resetSet() {
     if (!currentSet) return;
     checkedIds.clear();
-    localStorage.removeItem(`checked_${currentSet}`);
+    localStorage.removeItem("checked_" + currentSet);
     render();
   }
 
@@ -183,7 +184,7 @@
 
     const total = parts.length;
     const done = parts.filter(p => checkedIds.has(String(p.id))).length;
-    document.getElementById("counter").textContent = `Fortschritt: ${done} / ${total} Positionen erledigt`;
+    document.getElementById("counter").textContent = "Fortschritt: " + done + " / " + total + " Positionen erledigt";
 
     parts.forEach(item => {
       const uid = String(item.id);
@@ -191,16 +192,15 @@
       if (isChecked && !showChecked) return;
 
       const card = document.createElement("div");
-      card.className = `card ${isChecked ? "checked" : ""}`;
+      card.className = "card" + (isChecked ? " checked" : "");
       card.onclick = () => togglePart(uid);
 
       const imgUrl = item.part.part_img_url || "https://rebrickable.com";
-      card.innerHTML = `
-        <img src="${imgUrl}" alt="${item.part.name}" loading="lazy" />
-        <div class="qty">${item.quantity}x</div>
-        <div class="name">${item.part.name}</div>
-        <div class="color">${item.color.name}</div>
-      `;
+      card.innerHTML =
+        '<img src="' + imgUrl + '" alt="' + item.part.name + '" loading="lazy" />' +
+        '<div class="qty">' + item.quantity + 'x</div>' +
+        '<div class="name">' + item.part.name + '</div>' +
+        '<div class="color">' + item.color.name + '</div>';
       grid.appendChild(card);
     });
   }
