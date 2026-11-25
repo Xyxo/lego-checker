@@ -123,7 +123,7 @@
     document.getElementById("grid").innerHTML = "";
 
     try {
-      let targetUrl = "https://" + "://rebrickable.com" + encodeURIComponent(currentSet) + "/parts/?page_size=500&key=" + encodeURIComponent(apiKey);
+      let targetUrl = "https://reb" + "rickable." + "com/api/v3/lego/sets/" + encodeURIComponent(currentSet) + "/parts/?page_size=500&key=" + encodeURIComponent(apiKey);
       let allResults = [];
 
       while (targetUrl) {
