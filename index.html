@@ -64,9 +64,6 @@
   <h1>🧱 LEGO Teile-Checker</h1>
   <div class="controls">
     <div class="row">
-      <input type="url" id="workerUrl" placeholder="Cloudflare Worker URL (https://...workers.dev)" />
-    </div>
-    <div class="row">
       <input type="password" id="apiKey" placeholder="Rebrickable API-Key" />
       <input type="text" id="setNum" placeholder="Set-Nr. (z.B. 70670-1)" />
       <button class="btn-primary" onclick="loadParts()">Laden</button>
@@ -86,16 +83,15 @@
 <main id="grid" class="grid"></main>
 
 <script>
+  const WORKER_URL = "https://workers.dev";
   let parts = [];
   let checkedIds = new Set();
   let showChecked = false;
   let currentSet = "";
 
   window.onload = () => {
-    const savedWorker = localStorage.getItem("rb_worker_url");
     const savedKey = localStorage.getItem("rb_api_key");
     const savedSet = localStorage.getItem("rb_last_set");
-    if (savedWorker) document.getElementById("workerUrl").value = savedWorker;
     if (savedKey) document.getElementById("apiKey").value = savedKey;
     if (savedSet) document.getElementById("setNum").value = savedSet;
   };
@@ -106,19 +102,17 @@
   }
 
   async function loadParts() {
-    const workerUrl = document.getElementById("workerUrl").value.trim().replace(/\/$/, "");
     const apiKey = document.getElementById("apiKey").value.trim();
     const rawSet = document.getElementById("setNum").value.trim();
     const errorEl = document.getElementById("error");
     errorEl.textContent = "";
 
-    if (!workerUrl || !apiKey || !rawSet) {
-      errorEl.textContent = "Bitte Worker-URL, API-Key und Set-Nummer eingeben.";
+    if (!apiKey || !rawSet) {
+      errorEl.textContent = "Bitte API-Key und Set-Nummer eingeben.";
       return;
     }
 
     currentSet = normalizeSetNum(rawSet);
-    localStorage.setItem("rb_worker_url", workerUrl);
     localStorage.setItem("rb_api_key", apiKey);
     localStorage.setItem("rb_last_set", currentSet);
 
@@ -133,14 +127,8 @@
       let allResults = [];
 
       while (targetUrl) {
-        const res = await fetch(`${workerUrl}/?url=${encodeURIComponent(targetUrl)}`);
-        if (res.status === 401 || res.status === 403) {
-          throw new Error(`Fehler ${res.status}: API-Key ungültig oder Zugriff verweigert.`);
-        }
-        if (res.status === 404) {
-          throw new Error("Set-Nummer wurde auf Rebrickable nicht gefunden (404).");
-        }
-        if (!res.ok) throw new Error(`HTTP-Fehler ${res.status}`);
+        const res = await fetch(`${WORKER_URL}/?url=${encodeURIComponent(targetUrl)}`);
+        if (!res.ok) throw new Error(`Fehler ${res.status}: Set nicht gefunden oder API-Key ungültig.`);
 
         const data = await res.json();
         allResults = allResults.concat(data.results);
@@ -159,7 +147,7 @@
       document.getElementById("setTitle").textContent = `Set ${currentSet}`;
       render();
     } catch (err) {
-      errorEl.textContent = err.message;
+      errorEl.textContent = `${err.message} (${err.name})`;
       document.getElementById("counter").textContent = "Fehler beim Laden";
     }
   }
