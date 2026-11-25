@@ -64,6 +64,9 @@
   <h1>🧱 LEGO Teile-Checker</h1>
   <div class="controls">
     <div class="row">
+      <input type="url" id="workerUrl" placeholder="Cloudflare Worker URL (https://...workers.dev)" />
+    </div>
+    <div class="row">
       <input type="password" id="apiKey" placeholder="Rebrickable API-Key" />
       <input type="text" id="setNum" placeholder="Set-Nr. (z.B. 70670-1)" />
       <button class="btn-primary" onclick="loadParts()">Laden</button>
@@ -89,8 +92,10 @@
   let currentSet = "";
 
   window.onload = () => {
+    const savedWorker = localStorage.getItem("rb_worker_url");
     const savedKey = localStorage.getItem("rb_api_key");
     const savedSet = localStorage.getItem("rb_last_set");
+    if (savedWorker) document.getElementById("workerUrl").value = savedWorker;
     if (savedKey) document.getElementById("apiKey").value = savedKey;
     if (savedSet) document.getElementById("setNum").value = savedSet;
   };
@@ -100,49 +105,20 @@
     return trimmed.includes("-") ? trimmed : `${trimmed}-1`;
   }
 
-  // Probiert mehrere kostenlose CORS-Proxies nacheinander durch
-  async function fetchWithFallback(targetUrl) {
-    const proxies = [
-      (u) => `https://allorigins.win{encodeURIComponent(u)}`,
-      (u) => `https://codetabs.com{encodeURIComponent(u)}`,
-      (u) => `https://freeboard.io{u}`
-    ];
-
-    let lastError = null;
-    for (const makeUrl of proxies) {
-      try {
-        const res = await fetch(makeUrl(targetUrl));
-        if (res.status === 401 || res.status === 403) {
-          throw new Error("API-Key ungültig (401/403). Bitte Key prüfen.");
-        }
-        if (res.status === 404) {
-          throw new Error("Set-Nummer wurde auf Rebrickable nicht gefunden (404).");
-        }
-        if (!res.ok) continue;
-
-        const text = await res.text();
-        const json = JSON.parse(text);
-        if (json && json.results) return json;
-      } catch (err) {
-        if (err.message.includes("401") || err.message.includes("404")) throw err;
-        lastError = err;
-      }
-    }
-    throw new Error("Verbindung über alle Proxies fehlgeschlagen. Bitte in 1 Minute erneut versuchen.");
-  }
-
   async function loadParts() {
+    const workerUrl = document.getElementById("workerUrl").value.trim().replace(/\/$/, "");
     const apiKey = document.getElementById("apiKey").value.trim();
     const rawSet = document.getElementById("setNum").value.trim();
     const errorEl = document.getElementById("error");
     errorEl.textContent = "";
 
-    if (!apiKey || !rawSet) {
-      errorEl.textContent = "Bitte API-Key und Set-Nummer eingeben.";
+    if (!workerUrl || !apiKey || !rawSet) {
+      errorEl.textContent = "Bitte Worker-URL, API-Key und Set-Nummer eingeben.";
       return;
     }
 
     currentSet = normalizeSetNum(rawSet);
+    localStorage.setItem("rb_worker_url", workerUrl);
     localStorage.setItem("rb_api_key", apiKey);
     localStorage.setItem("rb_last_set", currentSet);
 
@@ -153,17 +129,26 @@
     document.getElementById("grid").innerHTML = "";
 
     try {
-      let url = `https://rebrickable.com{encodeURIComponent(currentSet)}/parts/?page_size=500&key=${encodeURIComponent(apiKey)}`;
+      let targetUrl = `https://rebrickable.com{encodeURIComponent(currentSet)}/parts/?page_size=500&key=${encodeURIComponent(apiKey)}`;
       let allResults = [];
 
-      while (url) {
-        const data = await fetchWithFallback(url);
+      while (targetUrl) {
+        const res = await fetch(`${workerUrl}/?url=${encodeURIComponent(targetUrl)}`);
+        if (res.status === 401 || res.status === 403) {
+          throw new Error(`Fehler ${res.status}: API-Key ungültig oder Zugriff verweigert.`);
+        }
+        if (res.status === 404) {
+          throw new Error("Set-Nummer wurde auf Rebrickable nicht gefunden (404).");
+        }
+        if (!res.ok) throw new Error(`HTTP-Fehler ${res.status}`);
+
+        const data = await res.json();
         allResults = allResults.concat(data.results);
 
         if (data.next) {
-          url = data.next.includes("key=") ? data.next : `${data.next}&key=${encodeURIComponent(apiKey)}`;
+          targetUrl = data.next.includes("key=") ? data.next : `${data.next}&key=${encodeURIComponent(apiKey)}`;
         } else {
-          url = null;
+          targetUrl = null;
         }
       }
 
