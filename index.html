@@ -156,3 +156,33 @@
     grid.innerHTML = "";
     let tot = 0, fnd = 0;
     parts.forEach(p => { tot += p.quantity; fnd += Math.min(counts[p.id] || 0, p.quantity); });
+    const filtered = selectedColor === "ALL" ? parts : parts.filter(p => p.color.name === selectedColor);
+    const miss = filtered.filter(p => (counts[p.id] || 0) < p.quantity);
+    const done = filtered.filter(p => (counts[p.id] || 0) >= p.quantity);
+    cMiss.textContent = miss.length; cDone.textContent = done.length;
+    counter.textContent = "Gesamt: " + fnd + " / " + tot + " Steine";
+
+    (tab === "miss" ? miss : done).forEach(item => {
+      const dQty = Math.min(counts[item.id] || 0, item.quantity), rem = item.quantity - dQty, isDone = tab === "done";
+      const card = document.createElement("div"); card.className = "card" + (isDone ? " done" : "");
+      card.innerHTML = '<img src="' + (item.part.part_img_url || HOST + "/static/img/nil.png") + '" loading="lazy">' +
+        '<div class="qty' + (!isDone && dQty ? ' part' : '') + '">' + (isDone ? item.quantity + 'x' : (dQty ? rem + '/' + item.quantity : item.quantity + 'x')) + '</div>' +
+        '<div class="name">' + item.part.name + '</div><div class="color">' + item.color.name + '</div>';
+      if (isDone) {
+        const b = document.createElement("button"); b.className = "btn-sm"; b.textContent = "↩️ Zurück";
+        b.onclick = () => { if (confirm(item.part.name + " zurückschieben?")) { delete counts[item.id]; save(); render(); } };
+        card.appendChild(b);
+      } else {
+        card.onclick = () => { counts[item.id] = dQty + 1; save(); render(); };
+        if (rem > 1) {
+          const b = document.createElement("button"); b.className = "btn-sm"; b.textContent = "✓ Alle (" + rem + ")";
+          b.onclick = e => { e.stopPropagation(); counts[item.id] = item.quantity; save(); render(); };
+          card.appendChild(b);
+        }
+      }
+      grid.appendChild(card);
+    });
+  }
+</script>
+</body>
+</html>
