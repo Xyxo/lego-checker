@@ -25,19 +25,20 @@
     .banner small { color: #6b7280; }
     .status { margin: 10px 0; display: flex; justify-content: space-between; font-size: 0.9rem; color: #6b7280; }
     .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(145px, 1fr)); gap: 10px; }
+    .sec-head { grid-column: 1 / -1; background: #e0e7ff; border-left: 4px solid #4f46e5; padding: 8px 12px; border-radius: 8px; font-weight: 700; font-size: 0.95rem; color: #1e1b4b; margin-top: 10px; display: flex; align-items: center; gap: 8px; }
+    .sec-head.bricks { background: #e5e7eb; border-left-color: #374151; color: #111827; margin-top: 18px; }
     .card { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 10px; display: flex; flex-direction: column; align-items: center; text-align: center; cursor: pointer; user-select: none; }
-    .card.fig { border-color: #93c5fd; background: #eff6ff; }
-    .card.figpart { border-color: #c4b5fd; background: #f5f3ff; }
-    .card.done { border-color: #10b981; background: #f0fdf4; cursor: default; }
+    .card.fig { border: 2px solid #4f46e5; background: #eef2ff; }
+    .card.figpart { border-color: #c7d2fe; background: #f8fafc; }
+    .card.done { border: 1px solid #10b981; background: #f0fdf4; cursor: default; }
     .card img { width: 90px; height: 90px; object-fit: contain; margin-bottom: 6px; }
     .qty { background: #111827; color: #fff; font-weight: 700; font-size: 0.82rem; padding: 2px 9px; border-radius: 99px; margin-bottom: 5px; }
-    .fig .qty { background: #2563eb; }
-    .figpart .qty { background: #7c3aed; }
+    .fig .qty { background: #4f46e5; }
+    .figpart .qty { background: #6366f1; }
     .qty.part { background: #d97706; }
     .done .qty { background: #059669; }
     .name { font-size: 0.8rem; font-weight: 600; line-height: 1.2; margin-bottom: 3px; }
-    .color { font-size: 0.75rem; color: #6b7280; margin-bottom: 4px; }
-    .subtag { font-size: 0.7rem; color: #6d28d9; font-weight: 600; margin-bottom: 6px; line-height: 1.15; }
+    .color { font-size: 0.75rem; color: #6b7280; margin-bottom: 6px; }
     .btn-sm { margin-top: auto; width: 100%; padding: 6px; font-size: 0.8rem; background: #f3f4f6; border: 1px solid #d1d5db; border-radius: 8px; }
     .set-item { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 10px; display: flex; align-items: center; gap: 10px; cursor: pointer; margin-bottom: 8px; }
     .set-item img { width: 58px; height: 58px; object-fit: contain; }
@@ -93,11 +94,40 @@
     t === "sets" ? renderSets() : render();
   }
 
-  function save() {
+  function syncFigs(changedId) {
+    if (changedId && changedId.startsWith("fig_")) {
+      const fig = parts.find(p => p.id === changedId);
+      if (!fig) return;
+      const doneFigs = Math.min(counts[fig.id] || 0, fig.quantity);
+      parts.filter(p => p.parentFig === fig.id).forEach(fp => {
+        const perFig = fp.quantity / fig.quantity;
+        const minNeeded = doneFigs * perFig;
+        if (doneFigs === 0) delete counts[fp.id];
+        else if ((counts[fp.id] || 0) < minNeeded) counts[fp.id] = minNeeded;
+      });
+    } else if (changedId && changedId.startsWith("fp_")) {
+      const fp = parts.find(p => p.id === changedId);
+      const fig = fp && parts.find(p => p.id === fp.parentFig);
+      if (!fig) return;
+      const children = parts.filter(p => p.parentFig === fig.id);
+      if (children.length) {
+        let completeFigs = fig.quantity;
+        children.forEach(c => {
+          const perFig = c.quantity / fig.quantity;
+          completeFigs = Math.min(completeFigs, Math.floor((counts[c.id] || 0) / perFig));
+        });
+        if (completeFigs > 0) counts[fig.id] = completeFigs;
+        else delete counts[fig.id];
+      }
+    }
+  }
+
+  function save(changedId) {
+    if (changedId) syncFigs(changedId);
     localStorage["counts_" + curSet] = JSON.stringify(counts);
     if (!curSet || !parts.length) return;
     let tot = 0, fnd = 0;
-    parts.forEach(p => { tot += p.quantity; fnd += Math.min(counts[p.id] || 0, p.quantity); });
+    parts.filter(p => !p.isFig).forEach(p => { tot += p.quantity; fnd += Math.min(counts[p.id] || 0, p.quantity); });
     const sets = JSON.parse(localStorage.rb_sets || "{}");
     sets[curSet] = { set: curSet, ...(curMeta || sets[curSet]), tot, fnd, ts: Date.now() };
     localStorage.rb_sets = JSON.stringify(sets);
@@ -137,25 +167,20 @@
       const rawParts = await fetchAllPages(base + "/parts/?page_size=500&key=" + encodeURIComponent(key), key);
       const rawFigs = await fetchAllPages(base + "/minifigs/?page_size=200&key=" + encodeURIComponent(key), key);
 
-      const figItems = [];
-      const figPartItems = [];
+      // Systematische Reihenfolge: Figur 1 -> Einzelteile Figur 1 -> Figur 2 -> Einzelteile Figur 2 ...
+      const orderedFigs = [];
       for (const f of rawFigs) {
-        figItems.push({
-          id: "fig_" + f.set_num, isFig: true, quantity: f.quantity,
-          part: { name: f.set_name, part_img_url: f.set_img_url }, color: { name: "🧍 Minifiguren" }
-        });
+        const figId = "fig_" + f.set_num;
+        orderedFigs.push({ id: figId, isFig: true, figGroup: f.set_name, quantity: f.quantity, part: { name: f.set_name, part_img_url: f.set_img_url }, color: { name: "🧍 Minifiguren" } });
         const fUrl = HOST + "/api/v3/lego/minifigs/" + encodeURIComponent(f.set_num) + "/parts/?page_size=200&key=" + encodeURIComponent(key);
         const fParts = await fetchAllPages(fUrl, key);
         fParts.filter(fp => !fp.is_spare).forEach(fp => {
-          figPartItems.push({
-            id: "fp_" + f.set_num + "_" + fp.id, isFigPart: true, figName: f.set_name,
-            quantity: fp.quantity * f.quantity, part: fp.part, color: fp.color
-          });
+          orderedFigs.push({ id: "fp_" + f.set_num + "_" + fp.id, isFigPart: true, parentFig: figId, figGroup: f.set_name, quantity: fp.quantity * f.quantity, part: fp.part, color: fp.color });
         });
       }
 
       const normalParts = rawParts.filter(i => !i.is_spare).sort((a, b) => a.color.name.localeCompare(b.color.name));
-      parts = figItems.concat(figPartItems, normalParts);
+      parts = orderedFigs.concat(normalParts);
       selectedColor = "ALL";
       const cols = {};
       parts.forEach(p => {
@@ -189,37 +214,35 @@
   function render() {
     grid.innerHTML = "";
     let tot = 0, fnd = 0;
-    parts.forEach(p => { tot += p.quantity; fnd += Math.min(counts[p.id] || 0, p.quantity); });
+    parts.filter(p => !p.isFig).forEach(p => { tot += p.quantity; fnd += Math.min(counts[p.id] || 0, p.quantity); });
     const filtered = selectedColor === "ALL" ? parts
       : (selectedColor === "🧩 Figuren-Teile" ? parts.filter(p => p.isFigPart) : parts.filter(p => p.color.name === selectedColor));
     const miss = filtered.filter(p => (counts[p.id] || 0) < p.quantity);
     const done = filtered.filter(p => (counts[p.id] || 0) >= p.quantity);
     cMiss.textContent = miss.length; cDone.textContent = done.length;
-    counter.textContent = "Gesamt: " + fnd + " / " + tot + " Elemente";
+    counter.textContent = "Gesamt: " + fnd + " / " + tot + " Steine";
 
+    let lastGroup = null, bricksHeaderAdded = false;
     (tab === "miss" ? miss : done).forEach(item => {
+      // Gruppen-Überschrift pro Figur bzw. vor den regulären Set-Steinen
+      if (item.figGroup && item.figGroup !== lastGroup) {
+        const h = document.createElement("div"); h.className = "sec-head";
+        h.textContent = "🧍 " + item.figGroup; grid.appendChild(h);
+        lastGroup = item.figGroup;
+      } else if (!item.figGroup && !bricksHeaderAdded && lastGroup !== null) {
+        const h = document.createElement("div"); h.className = "sec-head bricks";
+        h.textContent = "🧱 Reguläre Set-Steine"; grid.appendChild(h);
+        bricksHeaderAdded = true;
+      }
+
       const dQty = Math.min(counts[item.id] || 0, item.quantity), rem = item.quantity - dQty, isDone = tab === "done";
       const card = document.createElement("div");
       card.className = "card" + (isDone ? " done" : (item.isFig ? " fig" : (item.isFigPart ? " figpart" : "")));
       card.innerHTML = '<img src="' + (item.part.part_img_url || HOST + "/static/img/nil.png") + '" loading="lazy">' +
         '<div class="qty' + (!isDone && dQty ? ' part' : '') + '">' + (isDone ? item.quantity + 'x' : (dQty ? rem + '/' + item.quantity : item.quantity + 'x')) + '</div>' +
-        '<div class="name">' + item.part.name + '</div><div class="color">' + item.color.name + '</div>' +
-        (item.figName ? '<div class="subtag">↳ ' + item.figName + '</div>' : '');
+        '<div class="name">' + item.part.name + '</div><div class="color">' + item.color.name + '</div>';
       if (isDone) {
         const b = document.createElement("button"); b.className = "btn-sm"; b.textContent = "↩️ Zurück";
-        b.onclick = () => { if (confirm(item.part.name + " zurückschieben?")) { delete counts[item.id]; save(); render(); } };
+        b.onclick = () => { if (confirm(item.part.name + " zurückschieben?")) { delete counts[item.id]; save(item.id); render(); } };
         card.appendChild(b);
       } else {
-        card.onclick = () => { counts[item.id] = dQty + 1; save(); render(); };
-        if (rem > 1) {
-          const b = document.createElement("button"); b.className = "btn-sm"; b.textContent = "✓ Alle (" + rem + ")";
-          b.onclick = e => { e.stopPropagation(); counts[item.id] = item.quantity; save(); render(); };
-          card.appendChild(b);
-        }
-      }
-      grid.appendChild(card);
-    });
-  }
-</script>
-</body>
-</html>
