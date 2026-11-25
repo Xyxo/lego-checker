@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LEGO Teile-Checker</title>
+  <style>
+    :root {
+      --bg: #f4f6f8;
+      --card: #ffffff;
+      --primary: #d9232e;
+      --text: #1f2937;
+      --muted: #6b7280;
+      --border: #e5e7eb;
+    }
+    * { box-sizing: border-box; font-family: system-ui, -apple-system, sans-serif; }
+    body { margin: 0; background: var(--bg); color: var(--text); padding: 16px; }
+    header { max-width: 900px; margin: 0 auto 16px; }
+    h1 { font-size: 1.4rem; margin: 0 0 12px; }
+    .controls {
+      display: grid; gap: 8px; background: var(--card);
+      padding: 12px; border-radius: 12px; border: 1px solid var(--border);
+    }
+    .row { display: flex; gap: 8px; flex-wrap: wrap; }
+    input {
+      flex: 1; min-width: 140px; padding: 10px; border: 1px solid var(--border);
+      border-radius: 8px; font-size: 1rem;
+    }
+    button {
+      padding: 10px 16px; border: none; border-radius: 8px; font-weight: 600;
+      cursor: pointer; font-size: 0.95rem;
+    }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-secondary { background: #e5e7eb; color: var(--text); }
+    .status-bar {
+      max-width: 900px; margin: 12px auto; display: flex;
+      justify-content: space-between; align-items: center; font-size: 0.9rem; color: var(--muted);
+    }
+    .grid {
+      max-width: 900px; margin: 0 auto;
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(145px, 1fr)); gap: 12px;
+    }
+    .card {
+      background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+      padding: 10px; display: flex; flex-direction: column; align-items: center;
+      text-align: center; cursor: pointer; transition: transform 0.12s, opacity 0.2s;
+      user-select: none;
+    }
+    .card:active { transform: scale(0.96); }
+    .card.checked { opacity: 0.4; border-style: dashed; }
+    .card img { width: 96px; height: 96px; object-fit: contain; margin-bottom: 8px; }
+    .qty {
+      background: #111827; color: #fff; font-weight: 700; font-size: 0.85rem;
+      padding: 2px 8px; border-radius: 999px; margin-bottom: 6px;
+    }
+    .name { font-size: 0.8rem; font-weight: 600; line-height: 1.2; margin-bottom: 4px; }
+    .color { font-size: 0.75rem; color: var(--muted); }
+    .error { color: #b91c1c; font-weight: 600; max-width: 900px; margin: 8px auto; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>🧱 LEGO Teile-Checker</h1>
+  <div class="controls">
+    <div class="row">
+      <input type="password" id="apiKey" placeholder="Rebrickable API-Key" />
+      <input type="text" id="setNum" placeholder="Set-Nr. (z.B. 75192-1)" />
+      <button class="btn-primary" onclick="loadParts()">Laden</button>
+    </div>
+    <div class="row">
+      <button class="btn-secondary" id="toggleBtn" onclick="toggleShowChecked()">Erledigte einblenden</button>
+      <button class="btn-secondary" onclick="resetSet()">Set zurücksetzen</button>
+    </div>
+  </div>
+</header>
+
+<div id="error" class="error"></div>
+<div class="status-bar">
+  <span id="counter">Bereit</span>
+  <span id="setTitle"></span>
+</div>
+<main id="grid" class="grid"></main>
+
+<script>
+  let parts = [];
+  let checkedIds = new Set();
+  let showChecked = false;
+  let currentSet = "";
+
+  // Gespeicherten API-Key und letztes Set beim Start laden
+  window.onload = () => {
+    const savedKey = localStorage.getItem("rb_api_key");
+    const savedSet = localStorage.getItem("rb_last_set");
+    if (savedKey) document.getElementById("apiKey").value = savedKey;
+    if (savedSet) document.getElementById("setNum").value = savedSet;
+  };
+
+  function normalizeSetNum(input) {
+    const trimmed = input.trim();
+    return trimmed.includes("-") ? trimmed : `${trimmed}-1`;
+  }
+
+  async function loadParts() {
+    const apiKey = document.getElementById("apiKey").value.trim();
+    const rawSet = document.getElementById("setNum").value.trim();
+    const errorEl = document.getElementById("error");
+    errorEl.textContent = "";
+
+    if (!apiKey || !rawSet) {
+      errorEl.textContent = "Bitte API-Key und Set-Nummer eingeben.";
+      return;
+    }
+
+    currentSet = normalizeSetNum(rawSet);
+    localStorage.setItem("rb_api_key", apiKey);
+    localStorage.setItem("rb_last_set", currentSet);
+
+    // Gespeicherte Haken für dieses Set laden
+    const savedChecked = JSON.parse(localStorage.getItem(`checked_${currentSet}`) || "[]");
+    checkedIds = new Set(savedChecked);
+
+    document.getElementById("counter").textContent = "Lade Teile...";
+    document.getElementById("grid").innerHTML = "";
+
+    try {
+      let url = `https://rebrickable.com{encodeURIComponent(currentSet)}/parts/?page_size=500`;
+      let allResults = [];
+
+      while (url) {
+        const res = await fetch(url, {
+          headers: { "Authorization": `key ${apiKey}` }
+        });
+        if (!res.ok) throw new Error(`Fehler ${res.status}: Set nicht gefunden oder API-Key ungültig.`);
+        const data = await res.json();
+        allResults = allResults.concat(data.results);
+        url = data.next;
+      }
+
+      // Ersatzteile (is_spare) herausfiltern und nach Farbe sortieren
+      parts = allResults
+        .filter(item => !item.is_spare)
+        .sort((a, b) => a.color.name.localeCompare(b.color.name));
+
+      document.getElementById("setTitle").textContent = `Set ${currentSet}`;
+      render();
+    } catch (err) {
+      errorEl.textContent = err.message;
+      document.getElementById("counter").textContent = "Fehler beim Laden";
+    }
+  }
+
+  function togglePart(uniqueId) {
+    if (checkedIds.has(uniqueId)) {
+      checkedIds.delete(uniqueId);
+    } else {
+      checkedIds.add(uniqueId);
+    }
+    localStorage.setItem(`checked_${currentSet}`, JSON.stringify([...checkedIds]));
+    render();
+  }
+
+  function toggleShowChecked() {
+    showChecked = !showChecked;
+    document.getElementById("toggleBtn").textContent = showChecked
+      ? "Erledigte ausblenden"
+      : "Erledigte einblenden";
+    render();
+  }
+
+  function resetSet() {
+    if (!currentSet) return;
+    checkedIds.clear();
+    localStorage.removeItem(`checked_${currentSet}`);
+    render();
+  }
+
+  function render() {
+    const grid = document.getElementById("grid");
+    grid.innerHTML = "";
+
+    const total = parts.length;
+    const done = parts.filter(p => checkedIds.has(String(p.id))).length;
+    document.getElementById("counter").textContent = `Fortschritt: ${done} / ${total} Positionen erledigt`;
+
+    parts.forEach(item => {
+      const uid = String(item.id);
+      const isChecked = checkedIds.has(uid);
+      if (isChecked && !showChecked) return;
+
+      const card = document.createElement("div");
+      card.className = `card ${isChecked ? "checked" : ""}`;
+      card.onclick = () => togglePart(uid);
+
+      const imgUrl = item.part.part_img_url || "https://rebrickable.com";
+      card.innerHTML = `
+        <img src="${imgUrl}" alt="${item.part.name}" loading="lazy" />
+        <div class="qty">${item.quantity}x</div>
+        <div class="name">${item.part.name}</div>
+        <div class="color">${item.color.name}</div>
+      `;
+      grid.appendChild(card);
+    });
+  }
+</script>
+</body>
+</html>
