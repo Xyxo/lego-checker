@@ -26,9 +26,11 @@
     .status { margin: 10px 0; display: flex; justify-content: space-between; font-size: 0.9rem; color: #6b7280; }
     .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(145px, 1fr)); gap: 10px; }
     .card { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 10px; display: flex; flex-direction: column; align-items: center; text-align: center; cursor: pointer; user-select: none; }
+    .card.fig { border-color: #93c5fd; background: #eff6ff; }
     .card.done { border-color: #10b981; background: #f0fdf4; cursor: default; }
     .card img { width: 90px; height: 90px; object-fit: contain; margin-bottom: 6px; }
     .qty { background: #111827; color: #fff; font-weight: 700; font-size: 0.82rem; padding: 2px 9px; border-radius: 99px; margin-bottom: 5px; }
+    .fig .qty { background: #2563eb; }
     .qty.part { background: #d97706; }
     .done .qty { background: #059669; }
     .name { font-size: 0.8rem; font-weight: 600; line-height: 1.2; margin-bottom: 3px; }
@@ -52,7 +54,7 @@
       <button class="btn-gray" onclick="resetSet()">Reset</button>
     </div>
     <div class="row" id="filterRow">
-      <select id="colorFilter" onchange="selectedColor=this.value;render()"><option value="ALL">🎨 Alle Farben</option></select>
+      <select id="colorFilter" onchange="selectedColor=this.value;render()"><option value="ALL">🎨 Alle Farben & Figuren</option></select>
     </div>
     <div class="tabs">
       <button class="tab active" id="tMiss" onclick="setTab('miss')">🔍 Gesucht (<span id="cMiss">0</span>)</button>
@@ -99,6 +101,17 @@
     cSets.textContent = Object.keys(sets).length;
   }
 
+  async function fetchAllPages(startUrl, key) {
+    let url = startUrl, out = [];
+    while (url) {
+      const r = await fetch(WORKER + "/?url=" + encodeURIComponent(url));
+      if (!r.ok) throw new Error("Fehler " + r.status + " beim Laden.");
+      const d = await r.json(); out = out.concat(d.results);
+      url = d.next ? (d.next.includes("key=") ? d.next : d.next + "&key=" + encodeURIComponent(key)) : null;
+    }
+    return out;
+  }
+
   async function loadParts(override) {
     if (override) setNum.value = override;
     const key = apiKey.value.trim(), raw = setNum.value.trim();
@@ -108,7 +121,7 @@
     localStorage.rb_api_key = key; localStorage.rb_last_set = curSet;
     if (tab === "sets") setTab("miss");
     counts = JSON.parse(localStorage["counts_" + curSet] || "{}");
-    counter.textContent = "Lade..."; grid.innerHTML = "";
+    counter.textContent = "Lade Set, Teile & Figuren..."; grid.innerHTML = "";
     const base = HOST + "/api/v3/lego/sets/" + encodeURIComponent(curSet);
     try {
       const r1 = await fetch(WORKER + "/?url=" + encodeURIComponent(base + "/?key=" + encodeURIComponent(key)));
@@ -118,17 +131,25 @@
       bTitle.textContent = curMeta.name; bMeta.textContent = "Set " + curSet + (curMeta.year ? " • " + curMeta.year : ""); bImg.src = curMeta.img;
       banner.classList.add("show");
 
-      let url = base + "/parts/?page_size=500&key=" + encodeURIComponent(key), all = [];
-      while (url) {
-        const r2 = await fetch(WORKER + "/?url=" + encodeURIComponent(url));
-        if (!r2.ok) throw new Error("Fehler " + r2.status + " bei Teileliste.");
-        const d = await r2.json(); all = all.concat(d.results);
-        url = d.next ? (d.next.includes("key=") ? d.next : d.next + "&key=" + encodeURIComponent(key)) : null;
-      }
-      parts = all.filter(i => !i.is_spare).sort((a, b) => a.color.name.localeCompare(b.color.name));
+      const rawParts = await fetchAllPages(base + "/parts/?page_size=500&key=" + encodeURIComponent(key), key);
+      const rawFigs = await fetchAllPages(base + "/minifigs/?page_size=200&key=" + encodeURIComponent(key), key);
+
+      const figItems = rawFigs.map(f => ({
+        id: "fig_" + f.set_num,
+        isFig: true,
+        quantity: f.quantity,
+        part: { name: f.set_name, part_img_url: f.set_img_url },
+        color: { name: "🧍 Minifiguren" }
+      }));
+
+      const normalParts = rawParts
+        .filter(i => !i.is_spare)
+        .sort((a, b) => a.color.name.localeCompare(b.color.name));
+
+      parts = figItems.concat(normalParts);
       selectedColor = "ALL";
       const cols = {}; parts.forEach(p => cols[p.color.name] = (cols[p.color.name] || 0) + p.quantity);
-      colorFilter.innerHTML = '<option value="ALL">🎨 Alle Farben (' + parts.length + ')</option>' +
+      colorFilter.innerHTML = '<option value="ALL">🎨 Alle Farben & Figuren (' + parts.length + ')</option>' +
         Object.keys(cols).sort().map(c => '<option value="' + c + '">' + c + ' (' + cols[c] + ')</option>').join("");
       save(); setTitle.textContent = "Set " + curSet; render();
     } catch (e) { err.textContent = e.message; counter.textContent = "Fehler"; }
@@ -160,11 +181,12 @@
     const miss = filtered.filter(p => (counts[p.id] || 0) < p.quantity);
     const done = filtered.filter(p => (counts[p.id] || 0) >= p.quantity);
     cMiss.textContent = miss.length; cDone.textContent = done.length;
-    counter.textContent = "Gesamt: " + fnd + " / " + tot + " Steine";
+    counter.textContent = "Gesamt: " + fnd + " / " + tot + " Elemente";
 
     (tab === "miss" ? miss : done).forEach(item => {
       const dQty = Math.min(counts[item.id] || 0, item.quantity), rem = item.quantity - dQty, isDone = tab === "done";
-      const card = document.createElement("div"); card.className = "card" + (isDone ? " done" : "");
+      const card = document.createElement("div");
+      card.className = "card" + (isDone ? " done" : (item.isFig ? " fig" : ""));
       card.innerHTML = '<img src="' + (item.part.part_img_url || HOST + "/static/img/nil.png") + '" loading="lazy">' +
         '<div class="qty' + (!isDone && dQty ? ' part' : '') + '">' + (isDone ? item.quantity + 'x' : (dQty ? rem + '/' + item.quantity : item.quantity + 'x')) + '</div>' +
         '<div class="name">' + item.part.name + '</div><div class="color">' + item.color.name + '</div>';
