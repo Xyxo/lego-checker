@@ -27,14 +27,17 @@
     .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(145px, 1fr)); gap: 10px; }
     .card { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 10px; display: flex; flex-direction: column; align-items: center; text-align: center; cursor: pointer; user-select: none; }
     .card.fig { border-color: #93c5fd; background: #eff6ff; }
+    .card.figpart { border-color: #c4b5fd; background: #f5f3ff; }
     .card.done { border-color: #10b981; background: #f0fdf4; cursor: default; }
     .card img { width: 90px; height: 90px; object-fit: contain; margin-bottom: 6px; }
     .qty { background: #111827; color: #fff; font-weight: 700; font-size: 0.82rem; padding: 2px 9px; border-radius: 99px; margin-bottom: 5px; }
     .fig .qty { background: #2563eb; }
+    .figpart .qty { background: #7c3aed; }
     .qty.part { background: #d97706; }
     .done .qty { background: #059669; }
     .name { font-size: 0.8rem; font-weight: 600; line-height: 1.2; margin-bottom: 3px; }
-    .color { font-size: 0.75rem; color: #6b7280; margin-bottom: 8px; }
+    .color { font-size: 0.75rem; color: #6b7280; margin-bottom: 4px; }
+    .subtag { font-size: 0.7rem; color: #6d28d9; font-weight: 600; margin-bottom: 6px; line-height: 1.15; }
     .btn-sm { margin-top: auto; width: 100%; padding: 6px; font-size: 0.8rem; background: #f3f4f6; border: 1px solid #d1d5db; border-radius: 8px; }
     .set-item { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 10px; display: flex; align-items: center; gap: 10px; cursor: pointer; margin-bottom: 8px; }
     .set-item img { width: 58px; height: 58px; object-fit: contain; }
@@ -134,21 +137,31 @@
       const rawParts = await fetchAllPages(base + "/parts/?page_size=500&key=" + encodeURIComponent(key), key);
       const rawFigs = await fetchAllPages(base + "/minifigs/?page_size=200&key=" + encodeURIComponent(key), key);
 
-      const figItems = rawFigs.map(f => ({
-        id: "fig_" + f.set_num,
-        isFig: true,
-        quantity: f.quantity,
-        part: { name: f.set_name, part_img_url: f.set_img_url },
-        color: { name: "🧍 Minifiguren" }
-      }));
+      const figItems = [];
+      const figPartItems = [];
+      for (const f of rawFigs) {
+        figItems.push({
+          id: "fig_" + f.set_num, isFig: true, quantity: f.quantity,
+          part: { name: f.set_name, part_img_url: f.set_img_url }, color: { name: "🧍 Minifiguren" }
+        });
+        const fUrl = HOST + "/api/v3/lego/minifigs/" + encodeURIComponent(f.set_num) + "/parts/?page_size=200&key=" + encodeURIComponent(key);
+        const fParts = await fetchAllPages(fUrl, key);
+        fParts.filter(fp => !fp.is_spare).forEach(fp => {
+          figPartItems.push({
+            id: "fp_" + f.set_num + "_" + fp.id, isFigPart: true, figName: f.set_name,
+            quantity: fp.quantity * f.quantity, part: fp.part, color: fp.color
+          });
+        });
+      }
 
-      const normalParts = rawParts
-        .filter(i => !i.is_spare)
-        .sort((a, b) => a.color.name.localeCompare(b.color.name));
-
-      parts = figItems.concat(normalParts);
+      const normalParts = rawParts.filter(i => !i.is_spare).sort((a, b) => a.color.name.localeCompare(b.color.name));
+      parts = figItems.concat(figPartItems, normalParts);
       selectedColor = "ALL";
-      const cols = {}; parts.forEach(p => cols[p.color.name] = (cols[p.color.name] || 0) + p.quantity);
+      const cols = {};
+      parts.forEach(p => {
+        cols[p.color.name] = (cols[p.color.name] || 0) + p.quantity;
+        if (p.isFigPart) cols["🧩 Figuren-Teile"] = (cols["🧩 Figuren-Teile"] || 0) + p.quantity;
+      });
       colorFilter.innerHTML = '<option value="ALL">🎨 Alle Farben & Figuren (' + parts.length + ')</option>' +
         Object.keys(cols).sort().map(c => '<option value="' + c + '">' + c + ' (' + cols[c] + ')</option>').join("");
       save(); setTitle.textContent = "Set " + curSet; render();
@@ -177,7 +190,8 @@
     grid.innerHTML = "";
     let tot = 0, fnd = 0;
     parts.forEach(p => { tot += p.quantity; fnd += Math.min(counts[p.id] || 0, p.quantity); });
-    const filtered = selectedColor === "ALL" ? parts : parts.filter(p => p.color.name === selectedColor);
+    const filtered = selectedColor === "ALL" ? parts
+      : (selectedColor === "🧩 Figuren-Teile" ? parts.filter(p => p.isFigPart) : parts.filter(p => p.color.name === selectedColor));
     const miss = filtered.filter(p => (counts[p.id] || 0) < p.quantity);
     const done = filtered.filter(p => (counts[p.id] || 0) >= p.quantity);
     cMiss.textContent = miss.length; cDone.textContent = done.length;
@@ -186,10 +200,11 @@
     (tab === "miss" ? miss : done).forEach(item => {
       const dQty = Math.min(counts[item.id] || 0, item.quantity), rem = item.quantity - dQty, isDone = tab === "done";
       const card = document.createElement("div");
-      card.className = "card" + (isDone ? " done" : (item.isFig ? " fig" : ""));
+      card.className = "card" + (isDone ? " done" : (item.isFig ? " fig" : (item.isFigPart ? " figpart" : "")));
       card.innerHTML = '<img src="' + (item.part.part_img_url || HOST + "/static/img/nil.png") + '" loading="lazy">' +
         '<div class="qty' + (!isDone && dQty ? ' part' : '') + '">' + (isDone ? item.quantity + 'x' : (dQty ? rem + '/' + item.quantity : item.quantity + 'x')) + '</div>' +
-        '<div class="name">' + item.part.name + '</div><div class="color">' + item.color.name + '</div>';
+        '<div class="name">' + item.part.name + '</div><div class="color">' + item.color.name + '</div>' +
+        (item.figName ? '<div class="subtag">↳ ' + item.figName + '</div>' : '');
       if (isDone) {
         const b = document.createElement("button"); b.className = "btn-sm"; b.textContent = "↩️ Zurück";
         b.onclick = () => { if (confirm(item.part.name + " zurückschieben?")) { delete counts[item.id]; save(); render(); } };
