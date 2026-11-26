@@ -1,0 +1,10 @@
+{
+  "appId": "de.xyxo.legochecker",
+  "appName": "LEGO Teile-Checker",
+  "webDir": "www",
+  "plugins": {
+    "CapacitorHttp": {
+      "enabled": true
+    }
+  }
+}
