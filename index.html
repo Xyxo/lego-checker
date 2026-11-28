@@ -7,7 +7,7 @@
 </head>
 <body>
 <div class="w">
-  <div class="hdr"><h1>🧱 LEGO Teile-Checker</h1><span class="ver">v2.5</span></div>
+  <div class="hdr"><h1>🧱 LEGO Teile-Checker</h1><span class="ver">v2.6</span></div>
   <div class="bx">
     <div class="rw">
       <input type="text" id="setNum" placeholder="Set-Nr. (z.B. 70670-1)" onkeydown="if(event.key==='Enter')loadParts()"/>
@@ -23,7 +23,7 @@
     <div class="allr" id="rstBox" style="display:none"><button class="ball" id="bRst" onclick="clickRstBtn()">↺</button><span class="allt" id="tRst">Set zurücksetzen (alle wieder auf gesucht)</span></div>
     <div class="rw" id="fRow"><select id="cFil" onchange="sCol=this.value;render()"><option value="ALL">🎨 Alle</option></select></div>
   </div>
-  <div id="bn" class="bn"><img id="bI" onclick="openZoom(bI.src,bT.textContent,bM.textContent)"/><div style="flex:1;min-width:0"><div style="display:flex;align-items:flex-start;justify-content:space-between;gap:6px"><h2 id="bT"></h2><button class="zbtn" onclick="openZoom(bI.src,bT.textContent,bM.textContent)" title="Set-Bild vergrößern">🔍</button></div><small id="bM" style="color:#6b7280"></small></div></div>
+  <div id="bn" class="bn"><a id="bnAmz" class="amz-big" href="#" target="_blank" rel="nofollow sponsored noopener" title="Bei Amazon ansehen (Anzeige)"></a><img id="bI" onclick="openZoom(bI.src,bT.textContent,bM.textContent)"/><div style="flex:1;min-width:0"><div style="display:flex;align-items:flex-start;justify-content:space-between;gap:6px"><h2 id="bT"></h2><button class="zbtn" onclick="openZoom(bI.src,bT.textContent,bM.textContent)" title="Set-Bild vergrößern">🔍</button></div><small id="bM" style="color:#6b7280"></small></div></div>
   <div id="ntBox" class="ntb"><textarea id="setNote" placeholder="📝 Notiz zu diesem Set (z. B. Karton fehlt, Tüte 2 offen, fehlende Teile...)" oninput="saveNote(this.value)"></textarea></div>
   <div id="er" class="er"></div>
   <div class="st" id="sBar"><span id="cnt">Bereit</span><span id="sTit"></span></div>
