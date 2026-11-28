@@ -16,6 +16,7 @@ button{padding:9px 12px;border:none;border-radius:8px;font-weight:600;cursor:poi
 .tb.sm{flex:0 0 42px;font-size:1rem;padding:8px 0}.tb.on{background:#111827;color:#fff;border-color:#111827}
 .bn{margin-top:10px;display:none;align-items:center;gap:10px}.bn.on{display:flex}
 .bn img{width:64px;height:64px;object-fit:contain;cursor:pointer}.bn h2{margin:0 0 2px;font-size:1.2rem;line-height:1.2}
+.amz-big{width:54px;height:54px;border-radius:10px;background:#ff9900;color:#111827;display:inline-flex;flex-direction:column;align-items:center;justify-content:center;flex-shrink:0;text-decoration:none;font-size:.6rem;font-weight:700;line-height:1}
 .zbtn{width:34px;height:34px;padding:0;display:inline-flex;align-items:center;justify-content:center;background:#f3f4f6;border:1px solid #d1d5db;border-radius:8px;font-size:1rem;flex-shrink:0}
 .ntb{margin-top:8px;display:none}.ntb.on{display:block}
 .st{margin:8px 0;display:flex;justify-content:space-between;font-size:.88rem;color:#6b7280}
